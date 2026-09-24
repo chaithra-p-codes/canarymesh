@@ -4,3 +4,4 @@ node_modules/
 _pycache_/
 *.pyc
 .vscode/
+*.db

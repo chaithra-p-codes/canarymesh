@@ -33,7 +33,15 @@ class NodeSanitizer:
         """Phase 2c: Overwrite corrupted local weights with clean global model."""
         node = self.node_manager.nodes.get(node_id)
         if node:
-            node._train_baseline()   # retrain on clean synthetic normal data
+            if self.fl_engine.global_params is not None:
+                # Apply true federated learning offset
+                node.apply_global_model(self.fl_engine.global_params[0])
+            else:
+                # Fallback if FL hasn't produced a model yet
+                node._train_baseline(self.node_manager.broker)
+                
+            node.persistence_score = 0.0
+            node.anomaly_score = 0.05
         return self.fl_engine.round  # return current FL round number
 
     def verify_health(self, node_id: str) -> bool:
@@ -41,8 +49,16 @@ class NodeSanitizer:
         node = self.node_manager.nodes.get(node_id)
         if not node:
             return False
-        # Health passes if anomaly score dropped below medium threshold
-        return node.anomaly_score < 0.30
+            
+        ev = node.last_evidence
+        
+        # Check specific telemetry markers rather than just anomaly score
+        traffic_ok = (node.base_traffic * 0.7) <= node.traffic <= (node.base_traffic * 1.3)
+        dests_ok = ev.get("dest_count", 0) <= 3
+        no_honeypot = not ev.get("honeypot_interaction", False)
+        score_ok = node.anomaly_score < 0.35
+        
+        return traffic_ok and dests_ok and no_honeypot and score_ok
 
     def get_blocklist(self) -> list[str]:
         return list(MQTT_ACL_BLOCKLIST)

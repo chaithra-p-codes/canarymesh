@@ -45,6 +45,9 @@ async def simulation_loop():
             fl_update = None
             if tick % 5 == 0:
                 fl_update = await fl_engine.run_round()
+                
+            # Process Honeypot probes directly via honeypot module (legacy simulation, 
+            # though we now also capture honeypot evidence in node_manager ML model)
             for event in honeypot.check_probes():
                 alert = {"id": f"hp_{uuid.uuid4().hex[:8]}", "nodeId": event["honeypot_id"],
                     "node": event["honeypot_name"], "time": datetime.utcnow().strftime("%H:%M:%S"),
@@ -52,7 +55,23 @@ async def simulation_loop():
                     "reason": f"Honeypot probed from {event['source_ip']}. Credentials: {event['credentials']}. Pattern: {event.get('attack_pattern','—')}."}
                 new_alerts.append(alert)
                 await log_alert(alert)
-            for a in new_alerts: await log_alert(a)
+
+            for a in new_alerts:
+                await log_alert(a)
+                # Risk-based automated response engine
+                if a["severity"] in ["HIGH", "CRITICAL"]:
+                    result = node_manager.isolate_node(a["nodeId"])
+                    if result:
+                        iso_alert = {"id": f"iso_{uuid.uuid4().hex[:8]}", "nodeId": a["nodeId"], "node": result["name"],
+                            "time": datetime.utcnow().strftime("%H:%M:%S"), "severity": "CRITICAL",
+                            "reason": f"Node automatically isolated by Response Engine due to {a['severity']} risk score."}
+                        await log_alert(iso_alert)
+                        await log_decision({"node_id": a["nodeId"], "action": "auto_isolate", "operator": "system",
+                            "reason": "Automatic quarantine based on threat policy", "timestamp": datetime.utcnow().isoformat()})
+                        new_alerts.append(iso_alert)
+                        
+            # Ensure broadcast happens after isolation changes
+            node_updates = node_manager.get_all_nodes()
             await broadcast({"type":"state_update","nodes":node_updates,"alerts":new_alerts,
                              "fl":fl_update,"timestamp":datetime.utcnow().isoformat()})
         except Exception as e:

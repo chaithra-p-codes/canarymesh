@@ -136,7 +136,7 @@ export default function Dashboard({nodes,alerts,fl,sanitLog,selNode,setSelNode,
           marginBottom:10,fontWeight:700,fontSize:13,border:`1px solid ${scenarioRunning?CC.amber:CC.accent}`,
           background:scenarioRunning?`${CC.amber}20`:`linear-gradient(135deg,${CC.accent},#6366F1)`,
           color:scenarioRunning?CC.amber:'#fff'}}>
-          {scenarioRunning?'⏳ Scenario running...':'⚡ 1-Click Industrial Cyber Attack Scenario'}
+          {scenarioRunning?'⏳ Scenario running...':' 1-Click Industrial Cyber Attack Scenario'}
         </button>
         {scenarioRunning&&scenarioStep>=0&&(
           <div style={{marginBottom:10}}>

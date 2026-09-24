@@ -21,17 +21,20 @@ import random
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable
+from typing import Callable, Optional
 
 
 @dataclass
 class MQTTMessage:
-    topic:     str
-    payload:   str
-    node_id:   str
-    node_name: str
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().strftime("%H:%M:%S"))
-    is_attack: bool = False
+    topic:       str
+    payload:     str
+    source_id:   str
+    source_name: str
+    destination: str
+    command:     str
+    msg_type:    str
+    timestamp:   str = field(default_factory=lambda: datetime.utcnow().strftime("%H:%M:%S"))
+    is_attack:   bool = False
 
 
 class MQTTBrokerSimulator:
@@ -41,19 +44,19 @@ class MQTTBrokerSimulator:
     """
 
     NORMAL_PAYLOADS = {
-        "PLC":    ["temp={t}C status=RUN",    "pressure={p}bar mode=AUTO",   "cycle_count={c}"],
-        "Sensor": ["value={v} unit=degC",     "reading={r} quality=GOOD",    "alert=NONE"],
-        "SCADA":  ["cmd=POLL_STATUS",          "hmi_sync=OK",                 "alarm_count=0"],
-        "HMI":    ["operator_input=NONE",      "screen=MAIN display=OK",      "session=active"],
+        "PLC":    [("temp={t}C status=RUN", "READ", "data"), ("pressure={p}bar mode=AUTO", "READ", "data"), ("cycle_count={c}", "READ", "data"), ("set_mode=AUTO", "WRITE", "cmd")],
+        "Sensor": [("value={v} unit=degC", "READ", "data"), ("reading={r} quality=GOOD", "READ", "data"), ("alert=NONE", "READ", "status")],
+        "SCADA":  [("cmd=POLL_STATUS", "READ", "cmd"), ("hmi_sync=OK", "READ", "status"), ("alarm_count=0", "READ", "data"), ("update_setpoint={v}", "WRITE", "cmd")],
+        "HMI":    [("operator_input=NONE", "READ", "status"), ("screen=MAIN display=OK", "READ", "status"), ("session=active", "READ", "status"), ("manual_override=ON", "WRITE", "cmd")],
     }
 
     ATTACK_PAYLOADS = [
-        "cmd=UNKNOWN_0xFF",
-        "dest=192.168.99.1 payload=SCAN",
-        "WRITE reg=0x40 val=0xDEAD",
-        "FUZZ " * 50,
-        "cmd=FIRMWARE_UPLOAD src=unknown",
-        "broadcast=ALL cmd=SHUTDOWN",
+        ("cmd=UNKNOWN_0xFF", "UNKNOWN", "cmd"),
+        ("dest=192.168.99.1 payload=SCAN", "SCAN", "cmd"),
+        ("WRITE reg=0x40 val=0xDEAD", "WRITE", "cmd"),
+        ("FUZZ " * 50, "FUZZ", "data"),
+        ("cmd=FIRMWARE_UPLOAD src=unknown", "FIRMWARE_UPLOAD", "cmd"),
+        ("broadcast=ALL cmd=SHUTDOWN", "SHUTDOWN", "cmd"),
     ]
 
     def __init__(self):
@@ -76,13 +79,19 @@ class MQTTBrokerSimulator:
         return pattern == topic
 
     def generate_message(self, node_id: str, node_name: str,
-                         node_type: str, under_attack: bool = False) -> MQTTMessage:
+                         node_type: str, under_attack: bool = False, allowed_peers: list = None) -> MQTTMessage:
+        if allowed_peers is None:
+            allowed_peers = ["SCADA-03", "Gateway"]
+            
         topic = f"factory/{node_name}/data"
         if under_attack:
-            payload = random.choice(self.ATTACK_PAYLOADS)
+            payload, cmd, msg_type = random.choice(self.ATTACK_PAYLOADS)
+            destination = "BROADCAST" if cmd == "SHUTDOWN" else "UNKNOWN_IP"
+            topic = f"factory/{node_name}/{msg_type}"
         else:
-            templates = self.NORMAL_PAYLOADS.get(node_type, ["status=OK"])
-            tpl = random.choice(templates)
+            templates = self.NORMAL_PAYLOADS.get(node_type, [("status=OK", "READ", "status")])
+            tpl, cmd, msg_type = random.choice(templates)
+            topic = f"factory/{node_name}/{msg_type}"
             payload = tpl.format(
                 t=round(random.uniform(30, 90), 1),
                 p=round(random.uniform(1, 10), 2),
@@ -90,8 +99,15 @@ class MQTTBrokerSimulator:
                 v=round(random.uniform(20, 80), 2),
                 r=round(random.uniform(15, 75), 1),
             )
+            destination = random.choice(allowed_peers) if allowed_peers else "BROADCAST"
+
         return MQTTMessage(
-            topic=topic, payload=payload,
-            node_id=node_id, node_name=node_name,
+            topic=topic, 
+            payload=payload,
+            source_id=node_id, 
+            source_name=node_name,
+            destination=destination,
+            command=cmd,
+            msg_type=msg_type,
             is_attack=under_attack,
         )

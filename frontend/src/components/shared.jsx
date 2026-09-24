@@ -128,9 +128,34 @@ export function NodeDetail({node,onClose,onIsolate,onRestore,onAttack,onSanitize
             </div>
           )}
 
+          {node.lastEvidence && (
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:11,color:C.tm,marginBottom:5}}>Extracted Telemetry Features (2s window)</div>
+              <div style={{background:C.card,borderRadius:8,padding:'8px 10px',display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+                <div>
+                  <div style={{fontSize:9,color:C.tm}}>Avg Packet</div>
+                  <div style={{fontSize:12,fontWeight:600,color:C.tp}}>{node.lastEvidence.packet_size?.toFixed(1) || 0} B</div>
+                </div>
+                <div>
+                  <div style={{fontSize:9,color:C.tm}}>Reads</div>
+                  <div style={{fontSize:12,fontWeight:600,color:C.tp}}>{((node.lastEvidence.query_rate||0)*100).toFixed(0)}%</div>
+                </div>
+                <div>
+                  <div style={{fontSize:9,color:C.tm}}>Destinations</div>
+                  <div style={{fontSize:12,fontWeight:600,color:node.lastEvidence.dest_count>3?C.amber:C.tp}}>{node.lastEvidence.dest_count || 0}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{marginBottom:12}}>
             <div style={{fontSize:11,color:C.tm,marginBottom:5}}>Threat explanation</div>
-            <div style={{background:C.card,borderRadius:8,padding:'9px 11px',fontSize:12,color:C.ts,lineHeight:1.6}}>{node.threatReason}</div>
+            <div style={{background:C.card,borderRadius:8,padding:'9px 11px',fontSize:12,color:C.ts,lineHeight:1.6}}>
+              {node.threatReason}
+              {node.lastEvidence?.honeypot_interaction && (
+                <div style={{marginTop:6,color:C.purple,fontWeight:600}}>⚠ Target probed decoy device (Honeypot)!</div>
+              )}
+            </div>
           </div>
 
           {/* Sanitization progress */}

@@ -5,3 +5,6 @@ _pycache_/
 *.pyc
 .vscode/
 *.db
+*.db-journal
+*.db-shm
+*.db-wal

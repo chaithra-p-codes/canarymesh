@@ -94,12 +94,8 @@ class FederatedEngine:
                 else:
                     self.global_params = 0.7 * self.global_params + 0.3 * aggregated
 
-                # Accuracy drifts based on participation and agreement
-                participation = len(param_vectors) / max(1, len(active_nodes))
-                improvement   = random.uniform(-0.1, 0.45) * participation
-                self.global_accuracy = float(
-                    np.clip(self.global_accuracy + improvement, 86.0, 99.5)
-                )
+                # Perform actual evaluation on a synthetic holdout set
+                self.global_accuracy = self._evaluate_global_model(self.global_params[0])
 
         # Mark isolated nodes as not contributing
         for nid, node in self.node_manager.nodes.items():
@@ -145,3 +141,46 @@ class FederatedEngine:
             "history":       self.round_history[-10:],
             "aggregationMethod": "FedAvg on IF offset_ + anomaly score vectors",
         }
+
+    def _evaluate_global_model(self, global_offset: float) -> float:
+        """
+        Calculates a real, measured accuracy metric by validating the global offset 
+        against a generated holdout set of Normal and Attack telemetry windows.
+        """
+        # Find a reference node
+        ref_node = None
+        for n in self.node_manager.nodes.values():
+            if hasattr(n, 'model') and getattr(n, 'type', '') != "Honeypot":
+                ref_node = n
+                break
+                
+        if not ref_node or not hasattr(ref_node, 'model') or not getattr(self.node_manager, 'broker', None):
+            return self.global_accuracy
+            
+        orig_offset = ref_node.model.offset_
+        ref_node.model.offset_ = global_offset
+        
+        correct = 0
+        total = 40
+        broker = self.node_manager.broker
+        
+        # 20 Normal samples (expected to be non-anomalous, raw >= 0)
+        for _ in range(20):
+            msgs = ref_node.generate_window_messages(broker, under_attack=False)
+            feats, _ = ref_node.extract_features(msgs)
+            if ref_node.model.decision_function(feats)[0] >= 0:
+                correct += 1
+                
+        # 20 Attack samples (expected to be anomalous, raw < 0)
+        for _ in range(20):
+            # Temporarily set attack intensity for generation
+            ref_node.attack_intensity = random.uniform(0.5, 1.0)
+            msgs = ref_node.generate_window_messages(broker, under_attack=True)
+            feats, _ = ref_node.extract_features(msgs)
+            if ref_node.model.decision_function(feats)[0] < 0:
+                correct += 1
+                
+        ref_node.model.offset_ = orig_offset
+        ref_node.attack_intensity = 0.0
+        
+        return (correct / total) * 100.0

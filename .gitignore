@@ -1,10 +1,16 @@
-.env
-.env.local
-node_modules/
-_pycache_/
-*.pyc
-.vscode/
+# Python
+__pycache__/
+*.py[cod]
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
+
+# Node
+node_modules/
+dist/
+
+# Local env / editor
+.env
+.env.local
+.vscode/

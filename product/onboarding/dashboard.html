@@ -97,12 +97,12 @@ body{background:var(--bg);color:var(--tp);font-family:system-ui,-apple-system,sa
 </div>
 
 <div class="tabs">
-  <button class="tab active" onclick="showTab('overview')">Overview</button>
-  <button class="tab" onclick="showTab('nodes')">My Nodes</button>
-  <button class="tab" onclick="showTab('alerts')">Alerts <span id="alertCountBadge"
+  <button class="tab active" onclick="showTab('overview', event)">Overview</button>
+  <button class="tab" onclick="showTab('nodes', event)">My Nodes</button>
+  <button class="tab" onclick="showTab('alerts', event)">Alerts <span id="alertCountBadge"
     style="background:#EF4444;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;margin-left:4px;"></span></button>
-  <button class="tab" onclick="showTab('reports')">Reports</button>
-  <button class="tab" onclick="showTab('settings')">Settings</button>
+  <button class="tab" onclick="showTab('reports', event)">Reports</button>
+  <button class="tab" onclick="showTab('settings', event)">Settings</button>
 </div>
 
 <div class="content">
@@ -608,11 +608,18 @@ async function runScenario() {
 }
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
-function showTab(id) {
+function showTab(id, evt) {
   document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'))
   document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'))
   document.getElementById('tab-'+id).classList.add('active')
-  event.target.classList.add('active')
+  const e = evt || window.event
+  const btn = e && e.currentTarget ? e.currentTarget : (e && e.target ? e.target.closest('.tab') : null)
+  if (btn) btn.classList.add('active')
+  else {
+    // Fallback: match the button whose onclick references this tab id
+    const match = Array.from(document.querySelectorAll('.tab')).find(b => (b.getAttribute('onclick')||'').includes(`'${id}'`))
+    if (match) match.classList.add('active')
+  }
 }
 
 // ── Settings ───────────────────────────────────────────────────────────────

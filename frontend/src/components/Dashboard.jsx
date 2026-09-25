@@ -1,204 +1,37 @@
-import { useState, useEffect } from 'react'
-import { StatCard, NodeDetail, Badge, SEV, C as CC } from './shared'
+import { useMemo } from 'react'
+import { Badge, C, Progress, StatCard } from './shared'
 
-const EDGES=[['N1','N2'],['N2','N3'],['N1','N4'],['N4','N5'],['N5','N6'],['N3','N6'],['N2','N5']]
-const SCENARIO_STEPS=[
-  {label:'Reconnaissance',   desc:'Attacker scanning MQTT ports...',               color:CC.amber,  duration:2000},
-  {label:'Honeypot Probe',   desc:'Decoy PLC-99 contacted from 192.168.99.1',      color:CC.purple, duration:2000},
-  {label:'Lateral Movement', desc:'Cross-node compromise detected on SCADA-03',    color:CC.red,    duration:2000},
-  {label:'Auto-Isolation',   desc:'Node quarantined. Initiating sanitization...',  color:'#FF0000', duration:2000},
-]
-
-function getColor(n,alerts){
-  if(n.type==='Honeypot') return CC.purple
-  if(n.status==='isolated'||n.status==='compromised') return CC.red
-  if(n.status==='sanitizing'||n.status==='health_check') return CC.teal
-  if(n.status==='ready_reconnect') return CC.green
-  if(n.status==='suspicious') return CC.amber
-  const a=alerts.find(x=>x.nodeId===n.id)
-  if(a?.severity==='HIGH'||a?.severity==='CRITICAL') return CC.red
-  if(a?.severity==='MEDIUM') return CC.amber
-  return CC.green
+function riskColor(device) {
+  if (device.severity === 'CRITICAL') return C.critical
+  if (device.severity === 'HIGH') return C.red
+  if (device.severity === 'MEDIUM') return C.amber
+  return C.green
 }
 
-export default function Dashboard({nodes,alerts,fl,sanitLog,selNode,setSelNode,
-  isolateNode,restoreNode,simulateAttack,triggerHoneypot,sanitizeNode,reconnectNode}) {
-  const [scenarioStep,   setScenarioStep]   = useState(-1)
-  const [scenarioRunning,setScenarioRunning]= useState(false)
-  const [weightsKb,      setWeightsKb]      = useState(2.4)
+const EDGES = [['D1','D2'],['D2','D3'],['D1','D4'],['D4','D5'],['D5','D6'],['D3','D6'],['D2','D5']]
+const LEGEND = [
+  ['normal', 'Normal', 'green'],
+  ['suspicious', 'Medium / suspicious', 'amber'],
+  ['critical', 'High / critical', 'red'],
+  ['sanitizing', 'Sanitizing / verifying', 'teal'],
+  ['honeypot', 'Honeypot (decoy)', 'purple'],
+]
+// Node color is derived only from the device's own live fields (status +
+// severity) -- never from the alerts queue, which is intentionally "sticky"
+// (an alert stays visible until an operator resolves it, even after the
+// device's live reading recovers, see NodeManager.check_alerts). Mixing
+// that sticky queue into the topology color made recovered devices keep
+// showing red on the map long after their own badge already said Low.
+function nodeColor(device){if(device.type==='Honeypot')return C.purple;if(device.status==='isolated'||device.status==='compromised')return C.red;if(device.status==='sanitizing'||device.status==='health_check')return C.teal;if(device.status==='ready_reconnect')return C.green;if(device.severity==='CRITICAL'||device.severity==='HIGH')return C.red;if(device.severity==='MEDIUM')return C.amber;return C.green}
 
-  useEffect(()=>{
-    const id=setInterval(()=>setWeightsKb(w=>parseFloat((w+0.1).toFixed(1))),3000)
-    return()=>clearInterval(id)
-  },[])
-
-  const realNodes   = nodes.filter(n=>n.type!=='Honeypot')
-  const healthy     = realNodes.filter(n=>n.status==='normal').length
-  const suspicious  = realNodes.filter(n=>n.status==='suspicious').length
-  const dashAlerts  = alerts.filter(a=>a.severity!=='LOW').slice(0,4)
-
-  const runScenario = async()=>{
-    if(scenarioRunning) return
-    setScenarioRunning(true)
-    const attackable=nodes.filter(n=>n.type!=='Honeypot'&&!n.isIsolated)
-    const target=attackable[Math.floor(Math.random()*attackable.length)]
-    if(!target){setScenarioRunning(false);return}
-    for(let i=0;i<SCENARIO_STEPS.length;i++){
-      setScenarioStep(i)
-      await new Promise(r=>setTimeout(r,SCENARIO_STEPS[i].duration))
-      if(i===0) simulateAttack(target.id,0.4)
-      if(i===1) await triggerHoneypot()
-      if(i===2) simulateAttack(target.id,0.92)
-      if(i===3){ isolateNode(target.id); setTimeout(()=>sanitizeNode(target.id),1500) }
-    }
-    await new Promise(r=>setTimeout(r,1500))
-    setScenarioStep(-1); setScenarioRunning(false)
-  }
-
-  return(
-    <div>
-      {/* Stats */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
-        <StatCard label="Healthy nodes"  value={healthy}  unit={`/${realNodes.length}`} color={CC.green}/>
-        <StatCard label="Active alerts"  value={alerts.filter(a=>a.severity!=='LOW').length} color={alerts.filter(a=>a.severity!=='LOW').length>0?CC.red:CC.green} sub="Medium+ only"/>
-        <StatCard label="Suspicious"     value={suspicious} color={CC.amber} sub="Under watch"/>
-        <StatCard label="FL accuracy"    value={fl?fl.accuracy.toFixed(1):'--'} unit="%" color={CC.accent} sub={fl?`Round ${fl.round}/${fl.maxRounds}`:'Loading'}/>
-      </div>
-
-      {/* Privacy verification */}
-      <div style={{background:CC.card,border:`1px solid ${CC.borderB}`,borderRadius:12,padding:'10px 14px',marginBottom:14,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <div style={{textAlign:'center',flex:1}}>
-          <div style={{fontSize:10,color:CC.tm,marginBottom:3}}>Raw data exchanged</div>
-          <div style={{fontSize:20,fontWeight:700,color:CC.green}}>0 KB</div>
-          <div style={{fontSize:9,color:CC.green}}>✓ Privacy preserved</div>
-        </div>
-        <div style={{width:1,height:40,background:CC.border}}/>
-        <div style={{textAlign:'center',flex:1}}>
-          <div style={{fontSize:10,color:CC.tm,marginBottom:3}}>Model gradients exchanged</div>
-          <div style={{fontSize:20,fontWeight:700,color:CC.accent}}>{weightsKb} KB</div>
-          <div style={{fontSize:9,color:CC.accent}}>FL only</div>
-        </div>
-        <div style={{width:1,height:40,background:CC.border}}/>
-        <div style={{textAlign:'center',flex:1}}>
-          <div style={{fontSize:10,color:CC.tm,marginBottom:3}}>FL rounds done</div>
-          <div style={{fontSize:20,fontWeight:700,color:CC.purple}}>{fl?fl.round*10:'--'}</div>
-          <div style={{fontSize:9,color:CC.purple}}>Aggregations</div>
-        </div>
-      </div>
-
-      {/* Topology */}
-      <div style={{background:CC.panel,borderRadius:12,border:`1px solid ${CC.border}`,overflow:'hidden',marginBottom:14}}>
-        <div style={{padding:'10px 14px',borderBottom:`1px solid ${CC.border}`,display:'flex',alignItems:'center',gap:8}}>
-          <div style={{width:8,height:8,borderRadius:'50%',background:CC.green,boxShadow:`0 0 6px ${CC.green}`}}/>
-          <span style={{fontSize:12,color:CC.ts,fontWeight:500}}>Live network topology</span>
-          <span style={{marginLeft:'auto',fontSize:11,color:CC.tm}}>{realNodes.length} nodes · 2 honeypots</span>
-        </div>
-        <svg viewBox="0 0 100 100" style={{width:'100%',height:250}} preserveAspectRatio="xMidYMid meet">
-          {EDGES.map(([a,b])=>{
-            const na=nodes.find(n=>n.id===a),nb=nodes.find(n=>n.id===b)
-            if(!na?.position||!nb?.position) return null
-            return <line key={`${a}-${b}`} x1={na.position.x} y1={na.position.y} x2={nb.position.x} y2={nb.position.y}
-              stroke={CC.borderB} strokeWidth="0.5" strokeDasharray="2,1.5" opacity="0.7"/>
-          })}
-          {nodes.map(n=>{
-            if(!n.position) return null
-            const color=getColor(n,alerts); const isSel=selNode?.id===n.id; const isH=n.type==='Honeypot'
-            return(
-              <g key={n.id} onClick={()=>setSelNode(isSel?null:n)} style={{cursor:'pointer'}}>
-                {isSel&&<circle cx={n.position.x} cy={n.position.y} r={6} fill="none" stroke={color} strokeWidth="0.8" opacity="0.5"/>}
-                <circle cx={n.position.x} cy={n.position.y} r={isH?2.8:3.5}
-                  fill={`${color}25`} stroke={color} strokeWidth={isH?0.6:0.9}
-                  strokeDasharray={isH?"1.5,1":undefined}/>
-                <text x={n.position.x} y={n.position.y+7} textAnchor="middle" fontSize="2.4" fill={CC.ts} fontFamily="monospace">{n.name}</text>
-              </g>
-            )
-          })}
-        </svg>
-        <div style={{padding:'6px 14px 10px',display:'flex',gap:14,flexWrap:'wrap'}}>
-          {[{color:CC.green,l:'Normal'},{color:CC.amber,l:'Suspicious'},{color:CC.red,l:'Compromised'},
-            {color:CC.teal,l:'Sanitizing'},{color:CC.purple,l:'Honeypot'}].map(({color,l})=>(
-            <div key={l} style={{display:'flex',alignItems:'center',gap:5}}>
-              <div style={{width:7,height:7,borderRadius:'50%',background:color}}/>
-              <span style={{fontSize:10,color:CC.tm}}>{l}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {selNode&&<NodeDetail node={selNode} onClose={()=>setSelNode(null)}
-        onIsolate={isolateNode} onRestore={restoreNode}
-        onSanitize={sanitizeNode} onReconnect={reconnectNode} onAttack={simulateAttack}/>}
-
-      {/* Demo controls */}
-      <div style={{background:CC.card,border:`1px solid ${CC.border}`,borderRadius:12,padding:14,marginBottom:14}}>
-        <div style={{fontSize:11,fontWeight:600,color:CC.ts,marginBottom:10}}>Demo controls</div>
-        <button onClick={runScenario} disabled={scenarioRunning} style={{width:'100%',padding:'11px',borderRadius:9,cursor:scenarioRunning?'not-allowed':'pointer',
-          marginBottom:10,fontWeight:700,fontSize:13,border:`1px solid ${scenarioRunning?CC.amber:CC.accent}`,
-          background:scenarioRunning?`${CC.amber}20`:`linear-gradient(135deg,${CC.accent},#6366F1)`,
-          color:scenarioRunning?CC.amber:'#fff'}}>
-          {scenarioRunning?'⏳ Scenario running...':' 1-Click Industrial Cyber Attack Scenario'}
-        </button>
-        {scenarioRunning&&scenarioStep>=0&&(
-          <div style={{marginBottom:10}}>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-              {SCENARIO_STEPS.map((step,i)=>{
-                const done=i<scenarioStep,active=i===scenarioStep
-                return <div key={i} style={{flex:1,textAlign:'center',padding:'0 2px'}}>
-                  <div style={{height:3,borderRadius:2,marginBottom:4,transition:'background 0.5s',
-                    background:done?CC.green:active?step.color:CC.border}}/>
-                  <div style={{fontSize:9,color:done?CC.green:active?step.color:CC.tm,fontWeight:active?600:400,lineHeight:1.3}}>
-                    {done?'✓ ':active?'▶ ':''}{step.label}
-                  </div>
-                </div>
-              })}
-            </div>
-            <div style={{fontSize:11,color:SCENARIO_STEPS[scenarioStep]?.color,
-              background:`${SCENARIO_STEPS[scenarioStep]?.color}15`,borderRadius:7,padding:'6px 10px',
-              textAlign:'center',border:`1px solid ${SCENARIO_STEPS[scenarioStep]?.color}40`}}>
-              {SCENARIO_STEPS[scenarioStep]?.desc}
-            </div>
-          </div>
-        )}
-        <div style={{display:'flex',gap:8}}>
-          <button onClick={triggerHoneypot} style={{flex:1,padding:'8px',borderRadius:8,cursor:'pointer',
-            fontSize:11,fontWeight:500,background:`${CC.purple}15`,border:`1px solid ${CC.purple}50`,color:CC.purple}}>Probe honeypot</button>
-          <button onClick={()=>{const a=nodes.filter(n=>n.type!=='Honeypot'&&!n.isIsolated);if(a.length)simulateAttack(a[Math.floor(Math.random()*a.length)].id,0.85)}}
-            style={{flex:1,padding:'8px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:500,background:`${CC.red}15`,border:`1px solid ${CC.red}50`,color:CC.red}}>Simulate attack</button>
-        </div>
-      </div>
-
-      {/* Sanitization live log */}
-      {sanitLog?.length>0&&(
-        <div style={{background:CC.panel,border:`1px solid ${CC.border}`,borderRadius:12,padding:14,marginBottom:14}}>
-          <div style={{fontSize:12,fontWeight:600,color:CC.ts,marginBottom:8}}>Sanitization audit log</div>
-          {sanitLog.slice(0,5).map((e,i)=>{
-            const color={start:CC.amber,block_ip:CC.amber,purge_queue:CC.amber,fl_model_reset:CC.teal,
-              health_check:CC.teal,passed:CC.green,failed:CC.red,reconnected:CC.green}[e.type]||CC.ts
-            return <div key={i} style={{display:'flex',gap:8,padding:'5px 0',borderBottom:`1px solid ${CC.border}`}}>
-              <span style={{fontSize:10,color:CC.tm,fontFamily:'monospace',flexShrink:0}}>{e.time}</span>
-              <span style={{fontSize:11,color,lineHeight:1.5}}>{e.message}</span>
-            </div>
-          })}
-        </div>
-      )}
-
-      {/* Recent alerts */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-        <span style={{fontSize:12,color:CC.ts,fontWeight:500}}>Recent alerts</span>
-        <span style={{fontSize:10,color:CC.tm}}>Medium+ only · LOW hidden</span>
-      </div>
-      {dashAlerts.length===0?<div style={{textAlign:'center',padding:'20px',color:CC.tm,fontSize:12}}>✓ No medium/high/critical alerts</div>
-       :dashAlerts.map(alert=>{
-        const s=SEV[alert.severity]||SEV.LOW
-        return <div key={alert.id} style={{background:CC.card,border:`1px solid ${CC.border}`,borderLeft:`3px solid ${s.color}`,borderRadius:10,padding:'10px 12px',marginBottom:8}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
-            <div style={{display:'flex',alignItems:'center',gap:7}}><Badge sev={alert.severity}/><span style={{fontSize:12,fontWeight:600,color:CC.tp}}>{alert.node}</span></div>
-            <span style={{fontSize:10,color:CC.tm,fontFamily:'monospace'}}>{alert.time}</span>
-          </div>
-          <p style={{fontSize:11,color:CC.ts,margin:'0 0 6px',lineHeight:1.5}}>{alert.reason}</p>
-          <span style={{fontSize:10,color:s.color,fontWeight:500}}>● {s.action}</span>
-        </div>
-      })}
-    </div>
-  )
+export default function Dashboard({ devices=[], alerts=[], fl, dataset, mqttBroker, attackTypes, triggerHoneypot, replayAttack, setSelDevice }) {
+  const real=devices.filter(d=>d.type!=='Honeypot'); const healthy=real.filter(d=>!d.isIsolated&&d.severity==='LOW').length; const highRisk=real.filter(d=>['HIGH','CRITICAL'].includes(d.severity)).length; const attackVisible=real.filter(d=>d.attackType); const firstAttackable=real.find(d=>!d.isIsolated&&(attackTypes?.[d.dataset]||[]).length>0); const firstAttackType=firstAttackable?attackTypes[firstAttackable.dataset]?.[0]:null; const avgRisk=useMemo(()=>real.length?real.reduce((s,d)=>s+Number(d.riskScore||0),0)/real.length:0,[real])
+  const demo = Boolean(dataset?.demoFallback)
+  return <div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(155px,1fr))',gap:8,marginBottom:12}}><StatCard label="Healthy devices" value={healthy} unit={`/${real.length}`} color={C.green}/><StatCard label="High / critical" value={highRisk} color={highRisk?C.red:C.green} sub="Measured risk"/><StatCard label="Average risk" value={avgRisk.toFixed(1)} unit="/100" color={avgRisk>=50?C.red:avgRisk>=25?C.amber:C.green} sub="Across visible devices"/><StatCard label="FL accuracy" value={fl?.measured?Number(fl.accuracy).toFixed(1):'—'} unit={fl?.measured?'%':''} color={C.accent} sub={fl?`Round ${fl.round}`:'Waiting for measured evaluation'}/></div>
+    <div style={{display:'grid',gridTemplateColumns:'1.2fr .8fr',gap:10,marginBottom:12}}><div style={{padding:12,background:C.panel,border:`1px solid ${C.border}`,borderRadius:10}}><div style={{fontSize:12,fontWeight:700}}>Data pipeline</div><div style={{marginTop:9,display:'grid',gap:6,fontSize:10}}>{[['Dataset',dataset?.source||'Loading',dataset?.totalRows?`${dataset.totalRows.toLocaleString()} imported rows`:'' ],['Database','SQLite telemetry store','Same runtime records feed replay + audit'],['ML','Local Isolation Forest','Model scores telemetry without using ground-truth labels'],['MQTT',mqttBroker?.connected?'Connected to Mosquitto':'Not connected',mqttBroker?.connected?`${mqttBroker.host}:${mqttBroker.port}`:'Messages are recorded to SQLite only']].map(([k,v,d])=><div key={k} style={{display:'grid',gridTemplateColumns:'70px 1fr auto',gap:8,padding:'6px 0',borderBottom:`1px solid ${C.border}`}}><span style={{color:C.tm}}>{k}</span><span>{v}</span><span style={{color:C.tm}}>{d}</span></div>)}</div></div><div style={{padding:12,background:C.panel,border:`1px solid ${C.border}`,borderRadius:10}}><div style={{fontSize:12,fontWeight:700}}>Risk policy</div>{[['LOW','0–24.99',C.green],['MEDIUM','25–49.99',C.amber],['HIGH','50–74.99',C.red],['CRITICAL','75–100',C.critical]].map(([n,r,c])=><div key={n} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:`1px solid ${C.border}`,fontSize:10}}><span style={{color:c}}>{n}</span><span style={{color:C.ts}}>{r}</span></div>)}<div style={{marginTop:8,color:C.tm,fontSize:9,lineHeight:1.5}}>Thresholds are operational policy boundaries, not probabilities.</div></div></div>
+    <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:11,overflow:'hidden',marginBottom:12}}><div style={{padding:'10px 12px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between'}}><span style={{fontSize:12,fontWeight:700}}>Live device topology</span><span style={{color:C.tm,fontSize:10}}>{real.length} devices · {devices.filter(d=>d.type==='Honeypot').length} honeypots</span></div><svg viewBox="0 0 100 100" style={{width:'100%',height:285}}>{EDGES.map(([a,b])=>{const x=devices.find(d=>d.id===a);const y=devices.find(d=>d.id===b);return x?.position&&y?.position?<line key={`${a}-${b}`} x1={x.position.x} y1={x.position.y} x2={y.position.x} y2={y.position.y} stroke={C.borderB} strokeWidth=".5" strokeDasharray="2,1.5"/>:null})}{devices.map(d=>d.position?<g key={d.id} onClick={()=>setSelDevice(d)} style={{cursor:'pointer'}}><circle cx={d.position.x} cy={d.position.y} r={d.type==='Honeypot'?2.5:3.4} fill={`${nodeColor(d)}20`} stroke={nodeColor(d)} strokeWidth=".8" strokeDasharray={d.type==='Honeypot'?'1.5,1':undefined}/><text x={d.position.x} y={d.position.y+7} textAnchor="middle" fill={C.ts} fontSize="2.4" fontFamily="monospace">{d.name}</text></g>:null)}</svg><div style={{display:'flex',flexWrap:'wrap',gap:'6px 16px',padding:'8px 12px',borderTop:`1px solid ${C.border}`}}>{LEGEND.map(([key,label,colorKey])=><div key={key} style={{display:'flex',alignItems:'center',gap:5,fontSize:9,color:C.tm}}><span style={{width:8,height:8,borderRadius:99,background:C[colorKey],flexShrink:0,border:key==='honeypot'?`1.5px dashed ${C[colorKey]}`:undefined,boxSizing:'border-box'}}/>{label}</div>)}</div></div>
+    <div style={{padding:12,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,marginBottom:12}}><div style={{fontSize:12,fontWeight:700,marginBottom:8}}>Controlled attack demonstration</div><div style={{color:C.ts,fontSize:10,lineHeight:1.6,marginBottom:9}}>{demo?'Offline integration mode: the demo replays deterministic local attack rows through the same ML → risk → alert → quarantine path. These rows are clearly labelled demo telemetry, not ToN-IoT benchmark data.':'The demo replays an actual labeled attack row from the imported ToN-IoT benchmark through the same ML → risk → alert → quarantine path.'}</div><div style={{display:'flex',gap:7,flexWrap:'wrap'}}><button onClick={()=>firstAttackable&&replayAttack(firstAttackable.id,firstAttackType)} disabled={!firstAttackable} style={{padding:'8px 10px',borderRadius:7,cursor:firstAttackable?'pointer':'not-allowed',border:`1px solid ${C.red}66`,background:`${C.red}12`,color:C.red,fontWeight:700,fontSize:10,opacity:firstAttackable?1:0.4}}>Replay first available attack</button><button onClick={triggerHoneypot} style={{padding:'8px 10px',borderRadius:7,cursor:'pointer',border:`1px solid ${C.purple}66`,background:`${C.purple}12`,color:C.purple,fontWeight:700,fontSize:10}}>Controlled honeypot probe</button><span style={{color:C.tm,fontSize:9,alignSelf:'center'}}>{attackVisible.length} device currently carrying attack evidence</span></div></div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))',gap:8}}>{real.map(d=><div key={d.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:9}}><div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontSize:11,fontWeight:650}}>{d.name}</span><Badge sev={d.severity}/></div><div style={{marginTop:7,display:'flex',justifyContent:'space-between',fontSize:9,color:C.tm}}><span>Risk</span><span style={{color:riskColor(d)}}>{Number(d.riskScore||0).toFixed(1)}</span></div><Progress value={d.riskScore} color={riskColor(d)}/><div style={{marginTop:5,color:C.tm,fontSize:9}}>{d.dataset} · {d.attackType||'normal row'}</div></div>)}</div>
+  </div>
 }

@@ -1,186 +1,98 @@
-"""
-CanaryMesh — Federated Learning Engine
+"""Compact federated parameter aggregation with measured ToN-IoT evaluation."""
+from __future__ import annotations
 
-Technically valid FL approach for Isolation Forest:
-  - Each node serialises its model's 'offset_' (decision threshold) and
-    'estimators_samples_' statistics as a compact parameter vector.
-  - FedAvg aggregates these vectors into a global parameter set.
-  - Updated parameters are broadcast back to all active nodes.
-  - Raw sensor data NEVER leaves any node.
-
-This is the aggregation approach a judge can challenge — we have an answer.
-"""
-
-import asyncio
-import random
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import numpy as np
 
+def get_model_offset(model) -> float:
+    """Return IsolationForest offset_ safely as a Python float."""
+    return float(np.asarray(model.offset_).reshape(-1)[0])
 
 class FederatedEngine:
     def __init__(self, node_manager):
-        self.node_manager   = node_manager
-        self.round          = 0
-        self.max_rounds     = 10
-        self.global_accuracy = 88.5
+        self.node_manager = node_manager
+        self.round = 0
+        self.max_rounds = 100
+        self.global_accuracy: Optional[float] = None
         self.global_params: Optional[np.ndarray] = None
         self.round_history: list[dict] = []
 
+    def _evaluate_global_model(self, global_offset: float | None) -> float:
+        scores = []
+        for node in self.node_manager.nodes.values():
+            normal = self.node_manager.store.normal_rows[node.dataset]
+            attacks = self.node_manager.store.attack_rows[node.dataset]
+            if not normal or not attacks:
+                continue
+            normal_eval = normal[min(5000, max(0, len(normal) - 50)):][:50]
+            attack_eval = []
+            for attack_type in sorted(attacks):
+                attack_eval.extend(attacks[attack_type][:10])
+                if len(attack_eval) >= 50:
+                    break
+            eval_rows = normal_eval + attack_eval[:50]
+            if not eval_rows:
+                continue
+            old_offset = get_model_offset(node.model)
+            if global_offset is not None:
+                node.model.offset_ = float(global_offset)
+            correct = 0
+            for row in eval_rows:
+                vec = np.array([[row.features[name] for name in node.feature_names]], dtype=float)
+                predicted_attack = int(node.model.predict(node.scaler.transform(vec))[0]) == -1
+                correct += int(predicted_attack == bool(row.attack_type))
+            node.model.offset_ = np.array([old_offset])
+            scores.append(correct / len(eval_rows))
+        return float(np.mean(scores) * 100.0) if scores else 0.0
+
     async def run_round(self) -> dict:
-        """
-        One FL round:
-        1. Collect local model parameter vectors (not raw data)
-        2. FedAvg: weighted average proportional to each node's data volume
-        3. Update global accuracy estimate
-        4. Simulate broadcasting updated params back to all nodes
-        """
-        self.round = (self.round % self.max_rounds) + 1
-
-        gradients = self.node_manager.get_gradients()
-        active_nodes = {
-            nid: n for nid, n in self.node_manager.nodes.items()
-            if not n.is_isolated
-        }
-
-        contributions = {}
-
-        if gradients:
-            # Build weighted parameter vectors
-            # Weight = node's traffic volume (more data → more influence)
-            param_vectors, weights = [], []
-            for nid, grad in gradients.items():
-                if grad is None:
-                    continue
-                node = active_nodes.get(nid)
-                if not node:
-                    continue
-
-                # Serialize IF model stats as parameter vector
-                # (offset_ + mean anomaly score as proxy for contamination)
-                try:
-                    offset = float(node.model.offset_)
-                except Exception:
-                    offset = -0.5
-
-                param_vec = np.array([
-                    offset,
-                    float(node.anomaly_score),
-                    float(grad[0]) if len(grad) > 0 else 0.0,
-                ])
-                param_vectors.append(param_vec)
-                weights.append(node.traffic)
-
-                contributions[nid] = {
-                    "name":           node.name,
-                    "contributed":    True,
-                    "gradient_norm":  round(float(np.linalg.norm(grad)), 4),
-                    "param_offset":   round(offset, 4),
-                }
-
-            if param_vectors:
-                weights_arr = np.array(weights, dtype=float)
-                weights_arr /= weights_arr.sum()  # normalise
-
-                # FedAvg: weighted mean of parameter vectors
-                aggregated = np.average(
-                    np.array(param_vectors), axis=0, weights=weights_arr
-                )
-
-                # Update global params with EMA
-                if self.global_params is None:
-                    self.global_params = aggregated
-                else:
-                    self.global_params = 0.7 * self.global_params + 0.3 * aggregated
-
-                # Perform actual evaluation on a synthetic holdout set
-                self.global_accuracy = self._evaluate_global_model(self.global_params[0])
-
-        # Mark isolated nodes as not contributing
-        for nid, node in self.node_manager.nodes.items():
-            if node.is_isolated and nid not in contributions:
-                contributions[nid] = {
-                    "name": node.name, "contributed": False,
-                    "gradient_norm": 0, "param_offset": 0,
-                }
-
+        self.round += 1
+        active = [node for node in self.node_manager.nodes.values() if not node.is_isolated]
+        offsets, weights, contributions = [], [], {}
+        for node in active:
+            offsets.append(get_model_offset(node.model))
+            weights.append(max(node.activity, 1.0))
+            contributions[node.id] = {
+                "name": node.name,
+                "contributed": True,
+                "update_norm": round(float(np.linalg.norm(node.gradient)), 4) if node.gradient is not None else 0.0,
+                "param_offset": round(get_model_offset(node.model), 6),
+            }
+        for node in self.node_manager.nodes.values():
+            if node.is_isolated:
+                contributions[node.id] = {"name": node.name, "contributed": False, "update_norm": 0.0,"param_offset": get_model_offset(node.model)}
+        if offsets:
+            self.global_params = np.array([float(np.average(np.array(offsets), weights=np.array(weights)))])
+            for node in active:
+                node.apply_global_model(self.global_params[0])
+            self.global_accuracy = self._evaluate_global_model(float(self.global_params[0]))
         record = {
-            "round":        self.round,
-            "participants": len(gradients),
-            "accuracy":     round(self.global_accuracy, 2),
-            "raw_data_shared": 0,
-            "timestamp":    datetime.utcnow().isoformat(),
+            "round": self.round, "participants": len(active), "accuracy": round(float(self.global_accuracy or 0.0), 2),
+            "raw_data_shared": 0, "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         self.round_history.append(record)
-        if len(self.round_history) > 100:
-            self.round_history = self.round_history[-100:]
-
+        self.round_history = self.round_history[-100:]
         return self.get_status(contributions)
 
-    def get_status(self, contributions: dict = None) -> dict:
+    def get_status(self, contributions: dict | None = None) -> dict:
         if contributions is None:
             contributions = {
-                nid: {
-                    "name":          n.name,
-                    "contributed":   not n.is_isolated,
-                    "gradient_norm": round(float(np.linalg.norm(n.gradient)), 4)
-                                     if n.gradient is not None else 0,
-                    "param_offset":  0,
-                }
-                for nid, n in self.node_manager.nodes.items()
+                nid: {"name": node.name, "contributed": not node.is_isolated,
+                      "update_norm": round(float(np.linalg.norm(node.gradient)), 4) if node.gradient is not None else 0.0,
+                      "param_offset": round(get_model_offset(node.model), 6)}
+                for nid, node in self.node_manager.nodes.items()
             }
         return {
-            "round":         self.round,
-            "maxRounds":     self.max_rounds,
-            "accuracy":      round(self.global_accuracy, 2),
+            "round": self.round,
+            "maxRounds": self.max_rounds,
+            "accuracy": round(float(self.global_accuracy or 0.0), 2),
             "rawDataShared": 0,
-            "participants":  sum(1 for n in self.node_manager.nodes.values()
-                                 if not n.is_isolated),
+            "participants": sum(1 for node in self.node_manager.nodes.values() if not node.is_isolated),
             "contributions": contributions,
-            "history":       self.round_history[-10:],
-            "aggregationMethod": "FedAvg on IF offset_ + anomaly score vectors",
+            "history": self.round_history[-10:],
+            "aggregationMethod": "Traffic-weighted aggregation of local Isolation Forest offset parameters",
+            "evaluationSource": "Held-out labeled ToN-IoT database rows",
+            "measured": self.global_accuracy is not None,
         }
-
-    def _evaluate_global_model(self, global_offset: float) -> float:
-        """
-        Calculates a real, measured accuracy metric by validating the global offset 
-        against a generated holdout set of Normal and Attack telemetry windows.
-        """
-        # Find a reference node
-        ref_node = None
-        for n in self.node_manager.nodes.values():
-            if hasattr(n, 'model') and getattr(n, 'type', '') != "Honeypot":
-                ref_node = n
-                break
-                
-        if not ref_node or not hasattr(ref_node, 'model') or not getattr(self.node_manager, 'broker', None):
-            return self.global_accuracy
-            
-        orig_offset = ref_node.model.offset_
-        ref_node.model.offset_ = global_offset
-        
-        correct = 0
-        total = 40
-        broker = self.node_manager.broker
-        
-        # 20 Normal samples (expected to be non-anomalous, raw >= 0)
-        for _ in range(20):
-            msgs = ref_node.generate_window_messages(broker, under_attack=False)
-            feats, _ = ref_node.extract_features(msgs)
-            if ref_node.model.decision_function(feats)[0] >= 0:
-                correct += 1
-                
-        # 20 Attack samples (expected to be anomalous, raw < 0)
-        for _ in range(20):
-            # Temporarily set attack intensity for generation
-            ref_node.attack_intensity = random.uniform(0.5, 1.0)
-            msgs = ref_node.generate_window_messages(broker, under_attack=True)
-            feats, _ = ref_node.extract_features(msgs)
-            if ref_node.model.decision_function(feats)[0] < 0:
-                correct += 1
-                
-        ref_node.model.offset_ = orig_offset
-        ref_node.attack_intensity = 0.0
-        
-        return (correct / total) * 100.0

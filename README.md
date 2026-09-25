@@ -1,114 +1,192 @@
-# CanaryMesh — Industrial IoT Security Platform
-## HackfiniX 2026 · TrustGrid · Track: Industrial Cybersecurity
+# CanaryMesh — Industrial IoT Security Operations
 
----
+CanaryMesh is a defensive industrial-security prototype aligned to the supplied architecture: detect anomalous or honeypot activity, quarantine the affected device, sanitize it, verify health, and require operator approval before reconnection. The architecture document explicitly calls for Low/Medium/High/Critical threat evaluation, MQTT-level blocking/quarantine, SQLite audit logging, a device sanitization state machine, and a live SOC dashboard. See the supplied architecture flow: `fileciteturn14file0L56-L62` `fileciteturn14file0L63-L82` `fileciteturn14file0L83-L98`.
 
-## Folder Structure
+## What changed in this integrated version
 
+The original project used randomly generated telemetry and UI values in several places. This version changes the runtime source of truth to a **SQLite-backed replay of labeled UNSW ToN-IoT IoT/IIoT benchmark CSV rows**.
+
+```text
+UNSW ToN-IoT CSV
+      ↓
+SQLite telemetry table
+      ↓
+per-device feature extraction
+      ↓
+Isolation Forest + temporal persistence
+      ↓
+risk fusion (0–100) → Low / Medium / High / Critical
+      ↓
+real dataset row wrapped as MQTT JSON
+      ↓
+real MQTT broker publish (if Mosquitto is running)
+      ↓
+SQLite MQTT log + WebSocket
+      ↓
+React SOC dashboard
 ```
+
+The benchmark is used as a **controlled replay/evaluation source**, not as a claim that these rows came from the user's physical factory. Device IDs such as `D1` and names such as `PLC-01` are project-side mappings to the benchmark telemetry.
+
+## Data and risk model
+
+The loader supports the ToN-IoT IoT/IIoT telemetry subsets used by the project: Modbus, Weather, Garage Door, Thermostat, Fridge, Motion Light, and GPS Tracker. Missing CSVs are downloaded automatically on backend startup from the configured mirror. The rows are imported into SQLite and then read back from SQLite before replay, so the runtime model does not generate its own telemetry values.
+
+Ground-truth labels are stored for evaluation and displayed as evidence, but **the runtime risk score does not use the ground-truth label**. Risk is an operational policy score derived from the model and observed behavior:
+
+```text
+riskScore = 100 × (
+    0.40 × anomalyScore
+  + 0.15 × persistenceScore
+  + 0.10 × featureDeviationScore
+  + 0.35 × IsolationForestOutlier
+)
+```
+
+Classification:
+
+```text
+LOW       < 25
+MEDIUM    25–49.99
+HIGH      50–74.99
+CRITICAL  ≥ 75
+```
+
+These are **policy thresholds**, not probabilities of compromise.
+
+## Controlled attack demonstration
+
+The dashboard's **Replay labeled attack** action selects an actual attack-labeled row already loaded into SQLite and queues it for the next telemetry cycles. The frontend shows the dataset, attack type, source timestamp, feature values, model evidence, and resulting risk score.
+
+This is intentionally a safe benchmark replay rather than a live exploitation routine. The project does not include instructions or code for attacking a real HTTP/HTTPS target.
+
+## MQTT behavior
+
+When Mosquitto or another MQTT broker is available at the configured host/port, CanaryMesh publishes the exact JSON payload produced from the benchmark row to:
+
+```text
+factory/<device-name>/telemetry
+```
+
+The MQTT log records the exact topic, payload, dataset, label, message type, and transport status. When a broker is unavailable, the event remains truthfully recorded in SQLite as `recorded_only` instead of pretending that a network publish occurred.
+
+## Sanitization flow
+
+The backend follows the supplied four-phase design: source blocking, queue purge, FL model reset, a 10-second health observation window, then operator-approved reconnection. The architecture document specifies this lifecycle and the UI transitions from quarantined to sanitizing, health-check, ready-to-reconnect, and normal. `fileciteturn14file0L63-L98`
+
+Isolation is represented here as a defensive control action. In a real OT deployment, the equivalent enforcement would be done by the site's approved firewall, ACL, NAC, segmentation, or industrial security gateway rather than by retaliating against an attacker.
+
+## Federated learning note
+
+The current implementation performs a **compact, measured parameter aggregation** of local Isolation Forest offset values and evaluates the resulting threshold against held-out labeled ToN-IoT rows. The UI calls the per-device quantity an **update norm**, not a neural-network gradient. Raw telemetry is not shared.
+
+It does **not** currently implement a full Flower server/client deployment. Do not describe this codebase as a production Flower cluster until that layer has been added.
+
+## Project structure
+
+```text
 canarymesh/
-│
-├── backend/     ← REST API + WebSocket + DB
-│   ├── main.py                      FastAPI app, all endpoints
-│   ├── database.py                  SQLite audit log
+├── backend/
+│   ├── main.py                 FastAPI + WebSocket + orchestration
+│   ├── database.py             SQLite telemetry, MQTT, alert and audit storage
+│   ├── dataset_loader.py       ToN-IoT download/import/replay
+│   ├── mqtt_service.py         real broker publisher
+│   ├── sanitizer.py            defensive sanitization/recovery flow
 │   └── requirements.txt
-│
-├── ml_federated/            ← ML models + FL engine
-│   ├── node_manager.py              IoT nodes + Isolation Forest
-│   └── fl_engine.py                 FedAvg aggregation
-│
-├── iot_cybersecurity/       ← MQTT simulation + Honeypot
-│   ├── honeypot.py                  Decoy device + probe detection
-│   └── mqtt_broker.py               MQTT traffic simulator
-│
-└── frontend/      ← React SOC dashboard
-    ├── src/
-    │   ├── App.jsx                  Main app + 6 tabs
-    │   ├── useWebSocket.js          Real-time WS hook
-    │   └── components/
-    │       ├── Dashboard.jsx        Topology map + stats + demo controls
-    │       ├── NodesTab.jsx         Node list + ADD NODE feature
-    │       ├── AlertsTab.jsx        Full alert feed + approve/clear
-    │       ├── FLTab.jsx            FL rounds + gradient bars + history
-    │       ├── MQTTTab.jsx          Live MQTT log + traffic bars
-    │       ├── AuditTab.jsx         SQLite decision + alert history
-    │       ├── AddNodeModal.jsx     Add custom PLC/Sensor/SCADA/HMI
-    │       └── shared.jsx           NodeDetail + Badge + StatCard
-    ├── package.json
-    └── vite.config.js
+├── data/
+│   └── README.md               dataset acquisition notes
+├── ml_federated/
+│   ├── node_manager.py         per-device Isolation Forest + risk engine
+│   └── fl_engine.py            compact federated parameter aggregation
+├── iot_cybersecurity/
+│   ├── honeypot.py             controlled honeypot probe event
+│   └── mqtt_broker.py          legacy compatibility wrapper
+└── frontend/
+    └── src/
+        ├── App.jsx
+        ├── useWebSocket.js
+        └── components/
 ```
 
----
+## Quick start on Windows PowerShell
 
-## All Features Checklist
+### 1. Backend
 
-| Feature                    | Where                              | Status |
-|----------------------------|------------------------------------|--------|
-| Industrial IoT simulation  | ml_federated/node_manager.py              | ✅ |
-| MQTT communication         | iot_cybersecurity/mqtt_broker.py               | ✅ |
-| Local anomaly detection    | ml_federated/node_manager.py (IF model)   | ✅ |
-| Federated Learning (FL)    | ml_federated/fl_engine.py (FedAvg)        | ✅ |
-| Honeypot deception         | iot_cybersecurity/honeypot.py                  | ✅ |
-| Threat scoring             | ml_federated/node_manager.py              | ✅ |
-| Explainable alerts         | node.get_threat_reason()           | ✅ |
-| Adaptive response tiers    | LOW/MEDIUM/HIGH/CRITICAL           | ✅ |
-| Live SOC dashboard         | frontend/Dashboard.jsx                | ✅ |
-| Real-time WebSocket        | backend/main.py + useWebSocket.js    | ✅ |
-| Add/remove custom nodes    | frontend/NodesTab + AddNodeModal      | ✅ |
-| Simulate attack on node    | Dashboard + NodesTab controls      | ✅ |
-| Trigger honeypot probe     | Dashboard demo controls            | ✅ |
-| MQTT live log              | frontend/MQTTTab.jsx                  | ✅ |
-| SQLite audit trail         | backend/database.py + AuditTab       | ✅ |
-| Node isolation + restore   | isolate / restore endpoints        | ✅ |
-| FL aggregation method      | FedAvg on IF offset_ vectors       | ✅ |
-
----
-
-## Quick Start
-
-### Step 1 — Backend
-```bash
-cd backend
-pip install -r requirements.txt
+```powershell
+cd C:\Users\Admin\canarymesh\backend
+python -m pip install -r requirements.txt
 python -m uvicorn main:app --reload --port 8000
 ```
 
-### Step 2 — Frontend (new terminal)
-```bash
-cd frontend
-npm install
-npm run dev
-# Open http://localhost:5173
+On first startup, the backend downloads the configured ToN-IoT CSV files if they are not already present in `data/`, imports them into `backend/canarymesh.db`, trains the local models, and starts the WebSocket loop.
+
+### 2. MQTT broker
+
+For an actual MQTT transport log, run Mosquitto locally on port `1883`.
+
+If Mosquitto is not running, the dashboard will still work and the MQTT log will explicitly show `SQLite only / recorded_only`.
+
+### 3. Frontend
+
+Open a second PowerShell window:
+
+```powershell
+cd C:\Users\Admin\canarymesh\frontend
+npm.cmd install
+npm.cmd run dev
 ```
 
----
+Open `http://localhost:5173`.
 
-## Deploy: Render (backend) + Netlify (frontend)
+### 4. Verify the data path
 
-### Backend → Render
-- Root dir: `backend`
-- Build: `pip install -r requirements.txt`
-- Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+Backend state:
 
-### Frontend → Netlify
-- Root dir: `frontend`
-- Build: `npm run build`
-- Publish: `dist`
-- Env var: `VITE_WS_URL=wss://YOUR-RENDER-URL/ws`
-- Env var: `VITE_API_URL=https://YOUR-RENDER-URL`
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/state
+```
 
----
+Dataset status:
 
-## FL Aggregation — Judge Q&A
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/dataset/status
+```
 
-**Q: Isolation Forest doesn't have gradients like neural networks — how do you do FL?**
+MQTT log:
 
-A: We serialize two parameters per node:
-1. `model.offset_` — the decision threshold learned by the local IF model
-2. Current anomaly score (as contamination proxy)
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8000/api/mqtt/recent?limit=10"
+```
 
-These form a compact parameter vector. FedAvg computes a traffic-weighted mean across all active nodes. The aggregated vector is broadcast back and nodes update their detection threshold accordingly. Raw sensor data never leaves any node.
+Risk policy:
 
----
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/risk/thresholds
+```
 
-Built by TrustGrid · Cambridge Institute of Technology · HackfiniX 2026
+In Chrome DevTools, the frontend should now show `/api/state`, `/api/mqtt/recent`, and `/api/dataset/attack-types` during initial load, followed by the `/ws` WebSocket for live updates.
+
+## Demo sequence for judges
+
+1. Open **Devices** and show live risk/anomaly/persistence values and the source dataset.
+2. Open **MQTT Log** and show exact benchmark-backed JSON payloads.
+3. Select a device and choose **Replay labeled attack**.
+4. Watch the next telemetry cycles change the model evidence and risk score.
+5. Show the resulting alert and automatic quarantine for High/Critical policy events.
+6. Start sanitization and show source block → queue purge → FL model reset → health check.
+7. Use **Approve Reconnection** after the health check passes.
+8. Open **Audit** and show the lifecycle entries stored in SQLite.
+
+## Important implementation boundaries
+
+- The benchmark is real external data, but the demo is still a replay environment.
+- The displayed device identities are project-defined aliases, not claims about specific physical equipment.
+- A benchmark label is stored for evaluation and explanation; it is not fed into the runtime risk formula.
+- MQTT is genuinely published only when a broker is reachable.
+- The current FL layer is measured compact aggregation, not full Flower infrastructure.
+- “100% accurate” detection is not claimed. The dashboard reports measured evaluation results from the held-out benchmark rows.
+
+## Architecture alignment
+
+The supplied architecture calls for: detection/isolation, automated sanitization/eradication, a health-check handshake, operator-approved reconnection, SQLite audit logging, the sanitization state machine, the honeypot layer, MQTT handling, and a six-tab SOC dashboard. `fileciteturn14file0L100-L133`
+

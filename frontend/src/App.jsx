@@ -1,70 +1,85 @@
 import { useState } from 'react'
 import { useWebSocket } from './useWebSocket'
-import { C } from './components/shared'
+import { C, themeName, setThemeName } from './components/shared'
 import Dashboard from './components/Dashboard'
-import NodesTab  from './components/NodesTab'
+import NodesTab from './components/NodesTab'
 import AlertsTab from './components/AlertsTab'
-import FLTab     from './components/FLTab'
-import MQTTTab   from './components/MQTTTab'
-import AuditTab  from './components/AuditTab'
+import FLTab from './components/FLTab'
+import MQTTTab from './components/MQTTTab'
+import AuditTab from './components/AuditTab'
+import ArchitectureFlow from './components/ArchitectureFlow'
 
 export default function App() {
   const ws = useWebSocket()
-  const [tab,     setTab]     = useState('dashboard')
-  const [selNode, setSelNode] = useState(null)
+  const [tab, setTab] = useState('dashboard')
+  const [selDevice, setSelDevice] = useState(null)
+  const [, setThemeTick] = useState(0)
 
-  const alertCount    = ws.alerts.filter(a=>a.severity!=='LOW').length
-  const criticalCount = ws.alerts.filter(a=>a.severity==='CRITICAL'||a.severity==='HIGH').length
+  const toggleTheme = () => {
+    setThemeName(themeName === 'light' ? 'dark' : 'light')
+    setThemeTick((t) => t + 1)
+  }
 
-  const TABS = [
-    {id:'dashboard',label:'Dashboard'},
-    {id:'nodes',    label:'Nodes'},
-    {id:'alerts',   label:'Alerts'},
-    {id:'fl',       label:'FL Engine'},
-    {id:'mqtt',     label:'MQTT Log'},
-    {id:'audit',    label:'Audit'},
+  const alertCount = ws.alerts.filter((a) => a.severity !== 'LOW').length
+  const criticalCount = ws.alerts.filter((a) => a.severity === 'CRITICAL').length
+
+  const tabs = [
+    ['dashboard', 'Dashboard'], ['architecture', 'Architecture'], ['devices', 'Devices'], ['alerts', 'Alerts'],
+    ['fl', 'FL Engine'], ['mqtt', 'MQTT Log'], ['audit', 'Audit'],
   ]
 
-  const props = {...ws, selNode, setSelNode, C}
+  const shared = { ...ws, selDevice, setSelDevice, C }
+  const statusText = ws.connected ? 'Live WebSocket' : ws.apiConnected ? 'Backend API live' : 'Backend connecting'
+  const statusColor = ws.apiConnected ? C.green : C.amber
 
   return (
-    <div style={{background:C.bg,minHeight:'100vh',fontFamily:'system-ui,-apple-system,sans-serif',color:C.tp}}>
-      <div style={{borderBottom:`1px solid ${C.border}`,padding:'10px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',background:C.panel}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <div style={{width:32,height:32,borderRadius:9,background:`${C.accent}20`,border:`1px solid ${C.accent}50`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:17}}>⬡</div>
+    <div style={{ minHeight: '100vh', background: C.bg, color: C.tp, fontFamily: 'system-ui,-apple-system,sans-serif' }}>
+      <header style={{ borderBottom: `1px solid ${C.border}`, background: C.panel, padding: '10px 16px', display: 'flex', gap: 16, justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: `${C.accent}18`, border: `1px solid ${C.accent}55`, display: 'grid', placeItems: 'center', fontWeight: 800 }}>CM</div>
           <div>
-            <div style={{fontSize:16,fontWeight:700,letterSpacing:'-0.02em'}}>CanaryMesh</div>
-            <div style={{fontSize:9,color:C.tm,letterSpacing:'0.07em'}}>INDUSTRIAL IOT SOC</div>
+            <div style={{ fontSize: 16, fontWeight: 750 }}>CanaryMesh</div>
+            <div style={{ fontSize: 9, color: C.tm, letterSpacing: '.08em' }}>INDUSTRIAL IoT SECURITY OPERATIONS</div>
           </div>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          {criticalCount>0&&<div style={{background:`${C.red}20`,border:`1px solid ${C.red}50`,borderRadius:6,padding:'3px 10px',fontSize:11,color:C.red,fontWeight:600}}>⚠ {criticalCount} critical</div>}
-          <div style={{display:'flex',alignItems:'center',gap:5}}>
-            <div style={{width:8,height:8,borderRadius:'50%',background:ws.connected?C.green:C.amber,boxShadow:ws.connected?`0 0 6px ${C.green}`:'none'}}/>
-            <span style={{fontSize:11,color:C.ts}}>{ws.connected?'Live':'Reconnecting...'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11 }}>
+          {criticalCount > 0 && <div style={{ color: C.red, fontWeight: 700 }}>{criticalCount} critical</div>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 99, background: statusColor }} />
+            {statusText}
           </div>
+          <button
+            onClick={toggleTheme}
+            title={themeName === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            style={{ width: 30, height: 30, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.ts, cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 14 }}
+          >
+            {themeName === 'light' ? '🌙' : '☀️'}
+          </button>
         </div>
-      </div>
+      </header>
 
-      <div style={{display:'flex',borderBottom:`1px solid ${C.border}`,background:C.panel,overflowX:'auto'}}>
-        {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'10px 14px',fontSize:12,whiteSpace:'nowrap',
-            fontWeight:tab===t.id?600:400,color:tab===t.id?C.accent:C.ts,background:'none',border:'none',cursor:'pointer',
-            borderBottom:tab===t.id?`2px solid ${C.accent}`:'2px solid transparent',position:'relative'}}>
-            {t.label}
-            {t.id==='alerts'&&alertCount>0&&<span style={{marginLeft:5,fontSize:10,background:C.red,color:'#fff',borderRadius:10,padding:'1px 5px'}}>{alertCount}</span>}
+      <nav style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${C.border}`, background: C.panel }}>
+        {tabs.map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)} style={{ padding: '10px 14px', color: tab === id ? C.accent : C.ts, background: 'none', border: 0, borderBottom: tab === id ? `2px solid ${C.accent}` : '2px solid transparent', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            {label}{id === 'alerts' && alertCount > 0 ? ` (${alertCount})` : ''}
           </button>
         ))}
-      </div>
+      </nav>
 
-      <div style={{padding:14}}>
-        {tab==='dashboard'&&<Dashboard {...props}/>}
-        {tab==='nodes'    &&<NodesTab  {...props}/>}
-        {tab==='alerts'   &&<AlertsTab {...props}/>}
-        {tab==='fl'       &&<FLTab     {...props}/>}
-        {tab==='mqtt'     &&<MQTTTab   {...props}/>}
-        {tab==='audit'    &&<AuditTab  {...props}/>}
-      </div>
+      <main style={{ padding: 14 }}>
+        {ws.apiError && (
+          <div style={{ marginBottom: 12, padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.amber}55`, background: `${C.amber}10`, color: C.amber, fontSize: 11 }}>
+            {ws.apiError}
+          </div>
+        )}
+        {tab === 'dashboard' && <Dashboard {...shared} />}
+        {tab === 'architecture' && <ArchitectureFlow devices={ws.devices} intrusionLog={ws.intrusionLog} simulateIntrusion={ws.simulateIntrusion} reconnectDevice={ws.reconnectDevice} />}
+        {tab === 'devices' && <NodesTab {...shared} />}
+        {tab === 'alerts' && <AlertsTab alerts={ws.alerts} approveAlert={ws.approveAlert} clearAlerts={ws.clearAlerts} />}
+        {tab === 'fl' && <FLTab fl={ws.fl} />}
+        {tab === 'mqtt' && <MQTTTab mqttLog={ws.mqttLog} mqttBroker={ws.mqttBroker} dataset={ws.dataset} />}
+        {tab === 'audit' && <AuditTab />}
+      </main>
     </div>
   )
 }

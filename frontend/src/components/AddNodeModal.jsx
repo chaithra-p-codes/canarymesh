@@ -1,96 +1,29 @@
-// CanaryMesh — Add Node Modal
 import { useState } from 'react'
-import { C, NODE_TYPES, ICONS } from './shared'
+import { C, ICONS } from './shared'
+
+const DATASETS = [
+  ['modbus', 'PLC'], ['weather', 'Sensor'], ['garage_door', 'Actuator'], ['thermostat', 'Sensor'], ['fridge', 'Sensor'], ['motion_light', 'Sensor'], ['gps_tracker', 'Tracker'],
+]
 
 export default function AddNodeModal({ onAdd, onClose }) {
-  const [name,    setName]    = useState('')
-  const [type,    setType]    = useState('PLC')
-  const [traffic, setTraffic] = useState(100)
-  const [error,   setError]   = useState('')
+  const [name, setName] = useState('')
+  const [dataset, setDataset] = useState('modbus')
+  const [error, setError] = useState('')
+  const type = DATASETS.find(([d]) => d === dataset)?.[1] || 'Sensor'
 
   const submit = () => {
-    if (!name.trim()) { setError('Node name is required'); return }
-    if (name.trim().length < 2) { setError('Name must be at least 2 characters'); return }
-    onAdd(name.trim(), type, parseInt(traffic))
+    if (name.trim().length < 2) { setError('Use a device name with at least 2 characters'); return }
+    onAdd(name.trim(), type, dataset)
     onClose()
   }
 
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)',
-      display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
-      <div style={{ background:C.panel, border:`1px solid ${C.borderB}`,
-        borderRadius:14, padding:20, width:'100%', maxWidth:360 }}>
-
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-          <div style={{ fontSize:14, fontWeight:600, color:C.tp }}>Add new node</div>
-          <button onClick={onClose}
-            style={{ background:'none', border:'none', color:C.tm, cursor:'pointer', fontSize:18 }}>✕</button>
-        </div>
-
-        {/* Node type selector */}
-        <div style={{ marginBottom:14 }}>
-          <div style={{ fontSize:11, color:C.tm, marginBottom:6 }}>Device type</div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
-            {NODE_TYPES.map(t => (
-              <button key={t} onClick={() => setType(t)} style={{
-                padding:'8px', borderRadius:8, cursor:'pointer', fontWeight:500, fontSize:12,
-                background: type === t ? `${C.accent}20` : C.card,
-                border:`1px solid ${type === t ? C.accent : C.border}`,
-                color: type === t ? C.accent : C.ts,
-                display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-                <span>{ICONS[t]}</span>{t}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Node name */}
-        <div style={{ marginBottom:14 }}>
-          <div style={{ fontSize:11, color:C.tm, marginBottom:6 }}>Node name</div>
-          <input
-            value={name}
-            onChange={e => { setName(e.target.value); setError('') }}
-            placeholder={`e.g. ${type}-07`}
-            style={{ width:'100%', padding:'9px 12px', borderRadius:8, fontSize:13,
-              background:C.card, border:`1px solid ${error ? C.red : C.border}`,
-              color:C.tp, outline:'none' }}
-          />
-          {error && <div style={{ fontSize:10, color:C.red, marginTop:4 }}>{error}</div>}
-        </div>
-
-        {/* Base traffic */}
-        <div style={{ marginBottom:18 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-            <span style={{ fontSize:11, color:C.tm }}>Base traffic (req/min)</span>
-            <span style={{ fontSize:11, color:C.accent, fontWeight:600 }}>{traffic}</span>
-          </div>
-          <input type="range" min={20} max={500} value={traffic}
-            onChange={e => setTraffic(e.target.value)}
-            style={{ width:'100%', accentColor:C.accent }} />
-          <div style={{ display:'flex', justifyContent:'space-between' }}>
-            <span style={{ fontSize:10, color:C.tm }}>20 (low)</span>
-            <span style={{ fontSize:10, color:C.tm }}>500 (high)</span>
-          </div>
-        </div>
-
-        {/* Info box */}
-        <div style={{ background:`${C.accent}10`, border:`1px solid ${C.accent}30`,
-          borderRadius:8, padding:'8px 10px', marginBottom:14, fontSize:11, color:C.ts, lineHeight:1.5 }}>
-          The node will join the FL mesh immediately and start local anomaly detection.
-          Its MQTT traffic will be simulated at {traffic} req/min baseline.
-        </div>
-
-        <div style={{ display:'flex', gap:8 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'9px', borderRadius:8, cursor:'pointer',
-            background:'none', border:`1px solid ${C.border}`, color:C.tm, fontSize:12 }}>
-            Cancel
-          </button>
-          <button onClick={submit} style={{ flex:2, padding:'9px', borderRadius:8, cursor:'pointer',
-            background:C.accent, border:'none', color:'#fff', fontSize:12, fontWeight:600 }}>
-            Add {type} node
-          </button>
-        </div>
-      </div>
+  return <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#000b', display: 'grid', placeItems: 'center', padding: 14 }}>
+    <div style={{ width: '100%', maxWidth: 420, background: C.panel, border: `1px solid ${C.borderB}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}><div><div style={{ fontWeight: 750 }}>Add benchmark-backed device</div><div style={{ color: C.tm, fontSize: 9, marginTop: 3 }}>The telemetry source must be one of the loaded ToN-IoT subsets.</div></div><button onClick={onClose} style={{ border: 0, background: 'none', color: C.tm, cursor: 'pointer' }}>✕</button></div>
+      <div style={{ marginTop: 14 }}><label style={{ display: 'block', color: C.tm, fontSize: 10, marginBottom: 5 }}>Device name</label><input value={name} onChange={(e) => { setName(e.target.value); setError('') }} placeholder="e.g. PLC-07" style={{ width: '100%', boxSizing: 'border-box', padding: 9, borderRadius: 7, background: C.card, color: C.tp, border: `1px solid ${error ? C.red : C.border}` }} />{error && <div style={{ color: C.red, fontSize: 9, marginTop: 4 }}>{error}</div>}</div>
+      <div style={{ marginTop: 12 }}><label style={{ display: 'block', color: C.tm, fontSize: 10, marginBottom: 5 }}>Telemetry dataset</label><select value={dataset} onChange={(e) => setDataset(e.target.value)} style={{ width: '100%', padding: 9, borderRadius: 7, background: C.card, color: C.tp, border: `1px solid ${C.border}` }}>{DATASETS.map(([key, kind]) => <option key={key} value={key}>{ICONS[kind] || '◈'} {key} ({kind})</option>)}</select></div>
+      <div style={{ marginTop: 12, padding: 9, background: C.card, borderRadius: 8, fontSize: 10, color: C.ts, lineHeight: 1.5 }}>This adds a display device backed by the selected dataset. No random traffic baseline is created.</div>
+      <div style={{ display: 'flex', gap: 7, marginTop: 14 }}><button onClick={onClose} style={{ flex: 1, padding: 9, borderRadius: 7, background: 'none', color: C.ts, border: `1px solid ${C.border}` }}>Cancel</button><button onClick={submit} style={{ flex: 1.5, padding: 9, borderRadius: 7, background: C.accent, color: '#fff', border: 0, fontWeight: 700 }}>Add device</button></div>
     </div>
-  )
+  </div>
 }

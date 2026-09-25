@@ -2,7 +2,7 @@
 
 **Track:** Industrial Cybersecurity
 **Team:** TrustGrid — IC01<br>
-Chaithra P (Lead) · Aarathi M Iyer · Abhinand J Prakash · Deekshitha R
+Chaithra P · Aarathi M Iyer · Abhinand J Prakash · Deekshitha R
 
 CanaryMesh is a SOC (Security Operations Center) prototype for industrial IoT/OT
 networks. It detects anomalous device behavior using per-device Isolation Forest
@@ -204,8 +204,7 @@ also points directly at `http://127.0.0.1:8000` / `ws://127.0.0.1:8000/ws` as a
 fallback if you serve the frontend separately from the proxy.
 
 > **To reach the dashboard through the product landing page instead of the raw
-> Vite URL:** with the frontend running, open `product/landing/index.html` in a
-> browser and click **"View live demo"** — it links straight to
+> Vite URL:** with the frontend running, open `product/landing/index.html` with live server and click **"View live demo"** — it links straight to
 > `http://localhost:5173/`, so the frontend must already be running for that
 > button to work.
 

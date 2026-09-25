@@ -192,7 +192,7 @@ export default function ArchitectureFlow({ devices = [], intrusionLog = [], simu
     const result = await reconnectDevice(diagramDevice.id)
     setApproving(false)
     if (result) {
-      setNotice({ tone: 'success', text: `✅ ${diagramDevice.name} reconnected successfully — back to Normal, live MQTT streaming resumed.` })
+      setNotice({ tone: 'success', text: `✓ ${diagramDevice.name} reconnected successfully — back to Normal, live MQTT streaming resumed.` })
     } else {
       setNotice({ tone: 'error', text: `${diagramDevice.name} is not ready to reconnect yet, or the request failed.` })
     }

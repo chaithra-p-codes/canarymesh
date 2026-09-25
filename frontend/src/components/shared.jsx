@@ -43,7 +43,7 @@ function initialThemeName() {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
     if (stored === 'light' || stored === 'dark') return stored
   } catch {}
-  return 'dark'
+  return 'light'
 }
 
 // `C` is a live-bound export: every file that does `import { C } from
@@ -52,7 +52,7 @@ function initialThemeName() {
 // every consumer's inline styles the next time React re-renders them --
 // no context/hooks plumbing needed through the whole component tree.
 export let themeName = initialThemeName()
-export let C = themeName === 'light' ? LIGHT_THEME : DARK_THEME
+export let C = themeName === 'dark' ? DARK_THEME : LIGHT_THEME
 
 export function setThemeName(name) {
   themeName = name === 'light' ? 'light' : 'dark'

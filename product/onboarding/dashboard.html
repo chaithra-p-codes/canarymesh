@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>SOC Dashboard — CanaryMesh</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 34 34%22%3E%3Crect width=%2234%22 height=%2234%22 rx=%229%22 fill=%22%233B82F6%22 fill-opacity=%220.15%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2233%22 height=%2233%22 rx=%228.5%22 fill=%22none%22 stroke=%22%233B82F6%22 stroke-opacity=%220.4%22/%3E%3Ctext x=%2217%22 y=%2224%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22%233B82F6%22 font-family=%22system-ui,sans-serif%22%3E%26%2311041;%3C/text%3E%3C/svg%3E"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{--bg:#0A0F1E;--panel:#0F1628;--card:#141B35;--border:#1E2D55;--borderB:#2A3F70;
@@ -90,7 +91,7 @@ body{background:var(--bg);color:var(--tp);font-family:system-ui,-apple-system,sa
       <div class="live-dot"></div>Live
     </div>
     <span class="plan-tag" id="planTag">Professional</span>
-    <div class="avatar" id="avatarBtn" title="Account settings">👤</div>
+    <div class="avatar" id="avatarBtn" title="Account settings">◍</div>
     <button onclick="logout()" style="font-size:11px;padding:4px 10px;border-radius:6px;
       background:none;border:1px solid var(--border);color:var(--tm);cursor:pointer;">Sign out</button>
   </div>
@@ -145,7 +146,7 @@ body{background:var(--bg);color:var(--tp);font-family:system-ui,-apple-system,sa
       <button id="scenarioBtn" onclick="runScenario()" style="width:100%;padding:11px;border-radius:9px;
         cursor:pointer;font-weight:700;font-size:13px;border:none;
         background:linear-gradient(135deg,#3B82F6,#6366F1);color:#fff;margin-bottom:10px;">
-        ⚡ Industrial Cyber Attack Scenario
+        ↯ Industrial Cyber Attack Scenario
       </button>
       <div id="scenarioStatus" style="display:none;font-size:12px;color:var(--amber);text-align:center;padding:8px;
         background:rgba(245,158,11,0.1);border-radius:7px;border:1px solid rgba(245,158,11,0.3);">
@@ -199,11 +200,11 @@ body{background:var(--bg);color:var(--tp);font-family:system-ui,-apple-system,sa
       <div style="display:flex;flex-direction:column;gap:10px;">
         <button onclick="exportCSV()" style="padding:11px;border-radius:9px;cursor:pointer;font-weight:600;
           font-size:13px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);color:var(--accent);">
-          📊 Export incident report (CSV)
+          ▤ Export incident report (CSV)
         </button>
         <button onclick="exportJSON()" style="padding:11px;border-radius:9px;cursor:pointer;font-weight:600;
           font-size:13px;background:none;border:1px solid var(--border);color:var(--ts);">
-          📄 Export full audit log (JSON)
+          ▥ Export full audit log (JSON)
         </button>
       </div>
     </div>

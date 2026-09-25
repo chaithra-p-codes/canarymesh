@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Register your company — CanaryMesh</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 34 34%22%3E%3Crect width=%2234%22 height=%2234%22 rx=%229%22 fill=%22%233B82F6%22 fill-opacity=%220.15%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2233%22 height=%2233%22 rx=%228.5%22 fill=%22none%22 stroke=%22%233B82F6%22 stroke-opacity=%220.4%22/%3E%3Ctext x=%2217%22 y=%2224%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22%233B82F6%22 font-family=%22system-ui,sans-serif%22%3E%26%2311041;%3C/text%3E%3C/svg%3E"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{--bg:#0A0F1E;--panel:#0F1628;--card:#141B35;--border:#1E2D55;
@@ -103,15 +104,15 @@ select option{background:var(--card);}
       <div class="step-title">Select your industry</div>
       <div class="step-sub">We'll customise your node templates and alert thresholds</div>
       <div class="industry-grid">
-        <div class="ind-option" onclick="selectIndustry(this,'Automotive')"><div class="icon">🚗</div>Automotive</div>
-        <div class="ind-option" onclick="selectIndustry(this,'Aerospace')"><div class="icon">✈️</div>Aerospace</div>
-        <div class="ind-option" onclick="selectIndustry(this,'Pharma')"><div class="icon">💊</div>Pharma</div>
-        <div class="ind-option" onclick="selectIndustry(this,'Power Grid')"><div class="icon">⚡</div>Power Grid</div>
-        <div class="ind-option" onclick="selectIndustry(this,'Oil & Gas')"><div class="icon">🛢️</div>Oil &amp; Gas</div>
-        <div class="ind-option selected" onclick="selectIndustry(this,'Manufacturing')"><div class="icon">🏭</div>Manufacturing</div>
-        <div class="ind-option" onclick="selectIndustry(this,'Water Treatment')"><div class="icon">💧</div>Water Treatment</div>
-        <div class="ind-option" onclick="selectIndustry(this,'Railways')"><div class="icon">🚂</div>Railways</div>
-        <div class="ind-option" onclick="selectIndustry(this,'Other')"><div class="icon">⚙️</div>Other</div>
+        <div class="ind-option" onclick="selectIndustry(this,'Automotive')"><div class="icon">⚙</div>Automotive</div>
+        <div class="ind-option" onclick="selectIndustry(this,'Aerospace')"><div class="icon">▲</div>Aerospace</div>
+        <div class="ind-option" onclick="selectIndustry(this,'Pharma')"><div class="icon">✚</div>Pharma</div>
+        <div class="ind-option" onclick="selectIndustry(this,'Power Grid')"><div class="icon">↯</div>Power Grid</div>
+        <div class="ind-option" onclick="selectIndustry(this,'Oil & Gas')"><div class="icon">◆</div>Oil &amp; Gas</div>
+        <div class="ind-option selected" onclick="selectIndustry(this,'Manufacturing')"><div class="icon">⬢</div>Manufacturing</div>
+        <div class="ind-option" onclick="selectIndustry(this,'Water Treatment')"><div class="icon">◒</div>Water Treatment</div>
+        <div class="ind-option" onclick="selectIndustry(this,'Railways')"><div class="icon">≡</div>Railways</div>
+        <div class="ind-option" onclick="selectIndustry(this,'Other')"><div class="icon">◇</div>Other</div>
       </div>
       <div class="btn-row">
         <button class="btn btn-outline" onclick="nextStep(0)">← Back</button>
@@ -160,7 +161,7 @@ select option{background:var(--card);}
 
     <!-- Step 4: Success -->
     <div class="step" id="step3">
-      <div class="success-icon">🎉</div>
+      <div class="success-icon">✓</div>
       <div class="step-title" style="text-align:center">You're all set!</div>
       <div class="step-sub" style="text-align:center">Your CanaryMesh account is ready. Here's what happens next:</div>
       <div class="success-list">

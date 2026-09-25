@@ -4,10 +4,11 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>CanaryMesh — Industrial IoT Security Platform</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 34 34%22%3E%3Crect width=%2234%22 height=%2234%22 rx=%229%22 fill=%22%233B82F6%22 fill-opacity=%220.15%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2233%22 height=%2233%22 rx=%228.5%22 fill=%22none%22 stroke=%22%233B82F6%22 stroke-opacity=%220.4%22/%3E%3Ctext x=%2217%22 y=%2224%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22%233B82F6%22 font-family=%22system-ui,sans-serif%22%3E%26%2311041;%3C/text%3E%3C/svg%3E"/>
 <script>
   (function () {
     var stored = localStorage.getItem('canarymesh-theme');
-    document.documentElement.setAttribute('data-theme', stored === 'light' ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', stored === 'dark' ? 'dark' : 'light');
   })();
 </script>
 <style>
@@ -26,7 +27,7 @@ a{color:inherit;text-decoration:none;}
   border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:100;}
 .logo{display:flex;align-items:center;gap:10px;}
 .logo-icon{width:34px;height:34px;border-radius:9px;background:rgba(59,130,246,0.15);
-  border:1px solid rgba(59,130,246,0.4);display:flex;align-items:center;justify-content:center;font-size:18px;}
+  border:1px solid rgba(59,130,246,0.4);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--accent);}
 .nav-links{display:flex;align-items:center;gap:16px;}
 .nav-links a{font-size:13px;color:var(--ts);}
 .btn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:opacity 0.2s;}
@@ -56,14 +57,15 @@ section.sec{padding:60px 24px;max-width:900px;margin:0 auto;}
 .sec-sub{font-size:14px;color:var(--ts);text-align:center;margin-bottom:40px;}
 .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;}
 .feat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;}
-.feat-icon{font-size:26px;margin-bottom:12px;}
+.feat-icon{font-size:26px;margin-bottom:12px;color:var(--accent);}
 .feat-title{font-size:14px;font-weight:600;margin-bottom:6px;}
 .feat-desc{font-size:12px;color:var(--ts);line-height:1.65;}
-.industries{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:28px;}
+.industries{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:28px;}
+@media (max-width:640px){.industries{grid-template-columns:repeat(2,1fr);}}
 .ind{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;
   text-align:center;cursor:pointer;transition:border-color 0.2s;}
 .ind:hover{border-color:var(--accent);}
-.ind-icon{font-size:28px;margin-bottom:8px;}
+.ind-icon{font-size:28px;margin-bottom:8px;color:var(--accent);}
 .ind-name{font-size:12px;font-weight:500;}
 .steps{display:flex;flex-direction:column;gap:14px;margin-top:32px;}
 .step{display:flex;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;}
@@ -107,14 +109,14 @@ footer a{color:var(--accent);margin:0 10px;}
     <a href="#features">Features</a>
     <a href="#industries">Industries</a>
     <a href="#pricing">Pricing</a>
-    <button class="theme-toggle" id="themeToggle" title="Toggle dark / light mode" onclick="toggleTheme()">🌙</button>
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark / light mode" onclick="toggleTheme()">☾</button>
     <a href="../auth/login.html"><button class="btn btn-outline">Sign in</button></a>
     <a href="../auth/register.html"><button class="btn btn-primary">Get started</button></a>
   </div>
 </nav>
 
 <div class="hero">
-  <div class="badge">🏭 Purpose-built for Industrial OT Networks</div>
+  <div class="badge">⬢ Purpose-built for Industrial OT Networks</div>
   <h1>Protect your factory.<br/><span>Before it's too late.</span></h1>
   <p>CanaryMesh is a federated, privacy-preserving industrial IoT security platform.
      Deploy on your existing OT network — no data ever leaves your premises.</p>
@@ -133,17 +135,17 @@ footer a{color:var(--accent);margin:0 10px;}
   <div class="sec-title">Everything your SOC team needs</div>
   <div class="sec-sub">From anomaly detection to incident response — all in one platform</div>
   <div class="features-grid">
-    <div class="feat"><div class="feat-icon">🧠</div><div class="feat-title">Local Anomaly Detection</div>
+    <div class="feat"><div class="feat-icon">✦</div><div class="feat-title">Local Anomaly Detection</div>
       <div class="feat-desc">Isolation Forest runs on each device. Sensor data never leaves the machine. Privacy by design.</div></div>
-    <div class="feat"><div class="feat-icon">🌸</div><div class="feat-title">Federated Learning</div>
+    <div class="feat"><div class="feat-icon">⬡</div><div class="feat-title">Federated Learning</div>
       <div class="feat-desc">All nodes get smarter via FedAvg gradient aggregation — without sharing raw industrial data.</div></div>
-    <div class="feat"><div class="feat-icon">🍯</div><div class="feat-title">Honeypot Deception</div>
+    <div class="feat"><div class="feat-icon">⬟</div><div class="feat-title">Honeypot Deception</div>
       <div class="feat-desc">Fake PLCs lure attackers. Any probe is fingerprinted and flagged instantly as HIGH severity.</div></div>
-    <div class="feat"><div class="feat-icon">⚡</div><div class="feat-title">Adaptive Response</div>
+    <div class="feat"><div class="feat-icon">↯</div><div class="feat-title">Adaptive Response</div>
       <div class="feat-desc">Low → Alert. Medium → Approve. High → Auto-isolate. Critical → Quarantine. Configurable per node.</div></div>
-    <div class="feat"><div class="feat-icon">📊</div><div class="feat-title">Live SOC Dashboard</div>
+    <div class="feat"><div class="feat-icon">▤</div><div class="feat-title">Live SOC Dashboard</div>
       <div class="feat-desc">Real-time topology map, MQTT log, FL rounds, anomaly scores via WebSocket push.</div></div>
-    <div class="feat"><div class="feat-icon">📋</div><div class="feat-title">Incident Reports</div>
+    <div class="feat"><div class="feat-icon">▥</div><div class="feat-title">Incident Reports</div>
       <div class="feat-desc">Export full incident reports as CSV. Every alert, decision and operator action permanently logged.</div></div>
   </div>
 </section>
@@ -152,14 +154,14 @@ footer a{color:var(--accent);margin:0 10px;}
   <div class="sec-title">Built for every industrial sector</div>
   <div class="sec-sub">CanaryMesh adapts to your OT network — whatever the industry</div>
   <div class="industries">
-    <div class="ind"><div class="ind-icon">🚗</div><div class="ind-name">Automotive</div></div>
-    <div class="ind"><div class="ind-icon">✈️</div><div class="ind-name">Aerospace</div></div>
-    <div class="ind"><div class="ind-icon">💊</div><div class="ind-name">Pharma</div></div>
-    <div class="ind"><div class="ind-icon">⚡</div><div class="ind-name">Power Grid</div></div>
-    <div class="ind"><div class="ind-icon">🛢️</div><div class="ind-name">Oil &amp; Gas</div></div>
-    <div class="ind"><div class="ind-icon">🏭</div><div class="ind-name">Manufacturing</div></div>
-    <div class="ind"><div class="ind-icon">💧</div><div class="ind-name">Water Treatment</div></div>
-    <div class="ind"><div class="ind-icon">🚂</div><div class="ind-name">Railways</div></div>
+    <div class="ind"><div class="ind-icon">⚙</div><div class="ind-name">Automotive</div></div>
+    <div class="ind"><div class="ind-icon">▲</div><div class="ind-name">Aerospace</div></div>
+    <div class="ind"><div class="ind-icon">✚</div><div class="ind-name">Pharma</div></div>
+    <div class="ind"><div class="ind-icon">↯</div><div class="ind-name">Power Grid</div></div>
+    <div class="ind"><div class="ind-icon">◆</div><div class="ind-name">Oil &amp; Gas</div></div>
+    <div class="ind"><div class="ind-icon">⬢</div><div class="ind-name">Manufacturing</div></div>
+    <div class="ind"><div class="ind-icon">◒</div><div class="ind-name">Water Treatment</div></div>
+    <div class="ind"><div class="ind-icon">≡</div><div class="ind-name">Railways</div></div>
   </div>
 </section>
 
@@ -252,18 +254,18 @@ footer a{color:var(--accent);margin:0 10px;}
 </footer>
 <script>
   (function () {
-    var theme = document.documentElement.getAttribute('data-theme') || 'dark';
+    var theme = document.documentElement.getAttribute('data-theme') || 'light';
     var btn = document.getElementById('themeToggle');
-    if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
+    if (btn) btn.textContent = theme === 'light' ? '☾' : '☀';
   })();
 
   function toggleTheme() {
-    var current = document.documentElement.getAttribute('data-theme') || 'dark';
+    var current = document.documentElement.getAttribute('data-theme') || 'light';
     var next = current === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('canarymesh-theme', next);
     var btn = document.getElementById('themeToggle');
-    if (btn) btn.textContent = next === 'light' ? '🌙' : '☀️';
+    if (btn) btn.textContent = next === 'light' ? '☾' : '☀';
   }
 </script>
 </body>

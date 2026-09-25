@@ -36,7 +36,7 @@ export default function App() {
     <div style={{ minHeight: '100vh', background: C.bg, color: C.tp, fontFamily: 'system-ui,-apple-system,sans-serif' }}>
       <header style={{ borderBottom: `1px solid ${C.border}`, background: C.panel, padding: '10px 16px', display: 'flex', gap: 16, justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: `${C.accent}18`, border: `1px solid ${C.accent}55`, display: 'grid', placeItems: 'center', fontWeight: 800 }}>CM</div>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: `${C.accent}18`, border: `1px solid ${C.accent}55`, display: 'grid', placeItems: 'center', fontSize: 18, color: C.accent }}>⬡</div>
           <div>
             <div style={{ fontSize: 16, fontWeight: 750 }}>CanaryMesh</div>
             <div style={{ fontSize: 9, color: C.tm, letterSpacing: '.08em' }}>INDUSTRIAL IoT SECURITY OPERATIONS</div>
@@ -53,7 +53,7 @@ export default function App() {
             title={themeName === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             style={{ width: 30, height: 30, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.ts, cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 14 }}
           >
-            {themeName === 'light' ? '🌙' : '☀️'}
+            {themeName === 'light' ? '☾' : '☀'}
           </button>
         </div>
       </header>
